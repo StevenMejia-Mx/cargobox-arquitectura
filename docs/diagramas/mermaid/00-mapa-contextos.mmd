@@ -1,0 +1,12 @@
+flowchart TB
+  ENV["<b>Envíos y Rastreo</b><br/>«Core Domain»<br/>Guía, Evento de rastreo,<br/>Intento de entrega, Evidencia"]
+  RED["<b>Red de Distribución</b><br/>«Supporting»<br/>Sucursal, Centro de distribución,<br/>Repartidor"]
+  CON["<b>Consulta de Rastreo</b><br/>«Supporting - lectura»<br/>Historial de la guía (US09)"]
+  NOT["<b>Notificaciones</b><br/>«Generic»<br/>Avisos a remitente y destinatario"]
+  RED -->|"referencias por ID<br/>(sucursalId, centroId, repartidorId)"| ENV
+  ENV -->|"Domain Events<br/>(proyección del historial)"| CON
+  ENV -.->|"Domain Events<br/>(IntentoEntregaFallido, GuiaEnResguardo,<br/>EntregaCompletada)"| NOT
+  style ENV fill:#DCEBFF,stroke:#1F4E79
+  style RED fill:#F5F9FF,stroke:#1F4E79
+  style CON fill:#F5F9FF,stroke:#1F4E79
+  style NOT fill:#F5F9FF,stroke:#1F4E79
