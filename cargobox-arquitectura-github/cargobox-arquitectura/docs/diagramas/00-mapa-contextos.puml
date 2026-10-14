@@ -1,0 +1,17 @@
+@startuml 00-mapa-contextos
+title CargoBox - Mapa de Contextos (US01, US04, US05, US06, US09)
+skinparam defaultFontName Arial
+skinparam shadowing false
+skinparam rectangle {
+  BackgroundColor #F5F9FF
+  BorderColor #1F4E79
+}
+rectangle "<b>Envíos y Rastreo</b>\n<<Core Domain>>\nGuía, Evento de rastreo,\nIntento de entrega, Evidencia" as ENV #DCEBFF
+rectangle "<b>Red de Distribución</b>\n<<Supporting>>\nSucursal, Centro de distribución,\nRepartidor" as RED
+rectangle "<b>Consulta de Rastreo</b>\n<<Supporting - lectura>>\nHistorial de la guía (US09)" as CON
+rectangle "<b>Notificaciones</b>\n<<Generic>>\nAvisos a remitente y destinatario" as NOT
+
+RED --> ENV : referencias por ID\n(sucursalId, centroId, repartidorId)
+ENV --> CON : Domain Events\n(proyección del historial)
+ENV ..> NOT : Domain Events\n(IntentoEntregaFallido, GuiaEnResguardo,\nEntregaCompletada)
+@enduml

@@ -1,0 +1,75 @@
+@startuml 04-secuencia-entrega-intento-fallido
+title Secuencia 2 - Capturar evidencia de entrega (US06) o registrar intento fallido (US05)
+skinparam defaultFontName Arial
+skinparam shadowing false
+autonumber
+
+actor Repartidor as REP
+boundary "App Repartidor\n(API)" as APP
+participant "EntregaApplicationService\n<<ApplicationService>>" as S
+participant "AlmacenEvidencias" as AE
+participant "UnitOfWork" as UOW
+participant "GuiaRepository" as GR
+participant "Guia\n<<AggregateRoot>>" as G
+participant "PublicadorEventos" as EP
+participant "NotificacionHandler" as NH
+participant "HistorialRastreo\nProjection" as PRJ
+
+REP -> APP : llega al domicilio (guía EN_REPARTO)
+alt destinatario o tercero presente
+  REP -> APP : captura nombre, firma digital y foto
+  APP -> S : capturarEvidenciaEntrega(CapturarEvidenciaEntregaCommand)
+  activate S
+  S -> AE : guardar(firma, foto)
+  AE --> S : urls
+  S -> S : EvidenciaEntrega.crear(nombre, urls)
+  alt falta firma o foto (RN-07)
+    S --> APP : EvidenciaIncompleta
+  else evidencia completa
+    S -> UOW : iniciar()
+    S -> GR : porNumero(numeroGuia)
+    GR --> S : guia
+    S -> G : registrarEntrega(evidencia, repartidorId, ubicacion)
+    note right of G
+      RN-04: debe estar EN_REPARTO
+      RN-07: un solo intento exitoso
+      (si ya hay uno: EntregaYaRegistrada)
+      estado = ENTREGADO
+      + EventoRastreo + EntregaCompletada
+    end note
+    S -> GR : guardar(guia)
+    S -> UOW : confirmar()
+    S -> EP : publicar(eventos)
+    EP ->> PRJ : EntregaCompletada
+    EP ->> NH : EntregaCompletada
+    NH ->> NH : avisar al remitente
+    S --> APP : EntregaRegistradaDTO
+  end
+  deactivate S
+  APP --> REP : resultado
+else destinatario ausente
+  APP -> S : registrarIntentoFallido(RegistrarIntentoFallidoCommand)
+  activate S
+  S -> UOW : iniciar()
+  S -> GR : porNumero(numeroGuia)
+  GR --> S : guia
+  S -> G : registrarIntentoFallido(motivo, repartidorId, ubicacion)
+  alt primer intento (RN-06)
+    G -> G : agrega IntentoEntrega 1\n+ EventoRastreo
+    note right of G : + IntentoEntregaFallido\n(se programa el segundo intento)
+  else segundo intento (RN-06)
+    G -> G : agrega IntentoEntrega 2\nestado = EN_RESGUARDO\n+ EventoRastreo
+    note right of G : + IntentoEntregaFallido\n+ GuiaEnResguardo
+  end
+  note over S, G : Si la guía ya está EN_RESGUARDO, la Guía lanza\nLimiteIntentosExcedido y el servicio llama deshacer():\nno se guarda ni se publica nada.
+  S -> GR : guardar(guia)
+  S -> UOW : confirmar()
+  S -> EP : publicar(eventos)
+  EP ->> PRJ : eventos
+  EP ->> NH : IntentoEntregaFallido / GuiaEnResguardo
+  NH ->> NH : avisar al destinatario\n(2o intento, o recoger / reagendar\nen 5 días hábiles)
+  S --> APP : IntentoEntregaDTO
+  deactivate S
+  APP --> REP : intento registrado
+end
+@enduml

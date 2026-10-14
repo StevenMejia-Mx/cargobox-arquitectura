@@ -1,0 +1,73 @@
+@startuml 03-secuencia-registrar-guia
+title Secuencia 1 - Registrar guía (US01) y consultar historial (US09): Command vs Query
+skinparam defaultFontName Arial
+skinparam shadowing false
+autonumber
+
+actor "Empleado de sucursal" as EMP
+actor Remitente as REM
+boundary "API Sucursal /\nAPI Rastreo" as API
+participant "EnvioApplicationService\n<<ApplicationService>>" as S
+participant "UnitOfWork" as UOW
+participant "SucursalRepository" as SR
+participant "Cotizador\n<<DomainService>>" as COT
+participant "PoliticaTarifa\n(TarifaEstandar /\nTarifaExpress)" as PT
+participant "GuiaRepository" as GR
+participant "Guia\n<<AggregateRoot>>" as G
+participant "PublicadorEventos" as EP
+participant "HistorialRastreo\nProjection" as PRJ
+participant "ConsultaRastreo\nQueryService\n<<QueryService>>" as QS
+database "HistorialRastreoWriter /\nHistorialRastreoReader\n(modelo de lectura)" as RM
+
+== Command: RegistrarGuiaCommand (US01) ==
+EMP -> API : captura remitente, destinatario, peso,\ndimensiones, nivel de servicio y valor declarado
+API -> S : registrarGuia(RegistrarGuiaCommand)
+activate S
+S -> S : convierte datos en Peso, Dimensiones,\nNivelServicio (paso 1)
+S -> UOW : iniciar()
+S -> SR : porId(sucursalId)
+SR --> S : sucursal
+S -> COT : cotizar(peso, dimensiones, destino, nivel)
+COT -> PT : calcular(peso, dimensiones, destino)
+PT --> COT : tarifa
+COT --> S : tarifa
+S -> GR : siguienteNumero()
+GR --> S : numeroGuia
+S -> G ** : Guia.generar(numeroGuia, ..., tarifa, sucursalId)
+alt peso > 30 kg o dimensiones > 100x100x100 cm (RN-01)
+  G --> S : CargaEspecialRequerida
+  S -> UOW : deshacer()
+  S --> API : error de dominio
+  API --> EMP : "Carga especial: cotizar aparte o rechazar"\n(no se genera guía estándar)
+else dentro de límites
+  note right of G
+    estado = RECIBIDO
+    + EventoRastreo (RN-05)
+    + GuiaGenerada
+  end note
+  S -> GR : guardar(guia)
+  S -> UOW : confirmar()
+  S -> EP : publicar(guia.eventosPendientes())
+  EP ->> PRJ : GuiaGenerada
+  PRJ ->> RM : HistorialRastreoWriter.agregarEvento(...)
+  S --> API : GuiaRegistradaDTO (numeroGuia, tarifa, fechaEstimada)
+  API --> EMP : imprimir etiqueta con la guía
+end
+deactivate S
+
+== Query: ConsultarHistorialQuery (US09) ==
+REM -> API : consulta su guía
+API -> QS : consultarHistorial(ConsultarHistorialQuery)
+activate QS
+QS -> RM : HistorialRastreoReader.porNumero(numeroGuia, remitenteId)
+alt la guía no existe o no es del remitente
+  RM --> QS : vacío
+  QS --> API : GuiaNoEncontrada
+else
+  RM --> QS : HistorialEnvioView
+  note right of QS : No carga la Guía ni abre\ntransacción de escritura (CQRS)
+  QS --> API : HistorialEnvioView
+  API --> REM : línea de tiempo completa (RN-08)
+end
+deactivate QS
+@enduml
