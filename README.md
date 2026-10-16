@@ -18,9 +18,7 @@ El reporte completo, con las tablas comparativas, el mapa de dominio explicado, 
 | Diagrama de clases | [02-diagrama-clases](docs/diagramas/02-diagrama-clases.puml) |
 | Diagramas de secuencia | [03-secuencia-registrar-guia](docs/diagramas/03-secuencia-registrar-guia.puml), [04-secuencia-entrega-intento-fallido](docs/diagramas/04-secuencia-entrega-intento-fallido.puml) |
 | ADR | [docs/adr/](docs/adr/) |
-| Matriz de trazabilidad y recorrido del BPMN | [docs/matriz-trazabilidad.md](docs/matriz-trazabilidad.md) |
-| Bitácora de uso de IA | [docs/bitacora-ia.md](docs/bitacora-ia.md) |
-| Reporte | [docs/reporte-U3-CargoBox.pdf](docs/reporte-U3-CargoBox.pdf) |
+| Reporte | [docs/Reporte_DiseñoArquitectural_E14.pdf](docs/Reporte_DiseñoArquitectural_E14.pdf) |
 
 ## Diagramas
 
